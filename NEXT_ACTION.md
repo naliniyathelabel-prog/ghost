@@ -1,66 +1,72 @@
 # NEXT_ACTION.md
 
 **Last updated:** 2026-05-13
-**Branch:** main (scaffold complete — feature branches from here)
+**Branch:** main
 **Repo:** https://github.com/naliniyathelabel-prog/ghost
 
 ---
 
-## What's Done ✅
+## What's Done
 
 | Slice | Files | Status |
 |---|---|---|
-| Repo scaffold | .gitignore, README.md | ✅ |
-| Architecture doc | docs/ARCHITECTURE.md | ✅ |
-| ADR-001 WhatsApp Bridge | docs/adr/ADR-001 | ✅ |
-| ADR-002 AI Model | docs/adr/ADR-002 | ✅ |
-| Backend app shell | apps/backend/main.py, requirements.txt | ✅ |
-| Backend webhook route | apps/backend/routers/webhook.py | ✅ |
-| Backend ghost route | apps/backend/routers/ghost.py | ✅ |
-| AI service | apps/backend/services/ai.py | ✅ |
-| Baileys bridge | bridge/index.ts, package.json | ✅ |
-| Supabase schema | infra/migrations/001_init.sql | ✅ |
+| Repo scaffold | .gitignore, README.md | done |
+| Architecture + ADRs | docs/ | done |
+| Backend app shell | main.py, requirements.txt, .env.example | done |
+| Supabase client | apps/backend/db.py | done |
+| Webhook route — WIRED | routers/webhook.py — full happy path | done |
+| Ghost route — WIRED | routers/ghost.py — profile, toggle, messages, rate | done |
+| AI service | services/ai.py — Gemini Flash + Claude Haiku tier-routed | done |
+| Baileys bridge | bridge/index.ts — inbound forward + typing sim + /send | done |
+| Supabase schema + RLS | infra/migrations/001_init.sql | done |
+| Mobile: API client | apps/mobile/lib/api.ts | done |
+| Mobile: Tab layout | app/(tabs)/_layout.tsx | done |
+| Mobile: Dashboard | app/(tabs)/index.tsx — Ghost toggle + live stats | done |
+| Mobile: Inbox | app/(tabs)/inbox.tsx — message log + thumb rating | done |
+| Mobile: Train screen | app/(tabs)/settings.tsx — tone, lang, 5 samples | done |
 
 ---
 
-## Next Slice: `feat/backend-webhook-ai-wired`
+## Next Slice: `feat/e2e-smoke-test`
 
-Wire the full happy path end-to-end:
-1. `/webhook/inbound` → fetch ghost_profile from Supabase → call ai.py → POST /send to bridge
-2. Log inbound + outbound to message_logs
-3. Add Supabase client singleton to backend
-4. Test with a real WhatsApp message manually
+Full happy path manual test:
+1. Run Supabase migration (001_init.sql in SQL editor)
+2. Create a user in Supabase Auth, set GHOST_USER_ID in .env
+3. POST /ghost/profile with sample profile
+4. Start bridge (node bridge/index.ts) → scan QR
+5. Start backend (uvicorn main:app --reload)
+6. Send a WhatsApp message to the linked number
+7. Verify: message logged in message_logs, AI reply sent back
+8. Open mobile app → toggle ON → check inbox shows the reply
 
 **Acceptance criteria:**
-- Send a WhatsApp message to the linked number
-- Backend logs it in message_logs
-- AI generates a reply
-- Bridge sends it back
-- Message visible in message_logs table
+- One real WhatsApp message triggers one AI reply end-to-end
+- message_logs has both inbound + outbound rows
+- Mobile inbox shows the reply with rating buttons
 
 ---
 
-## After That: `feat/mobile-scaffold`
+## After That: `feat/onboarding-flow`
 
-- Expo React Native app init
-- Onboarding screens: QR scan + train Ghost (5 sample replies)
-- Dashboard screen with ON/OFF toggle
-- Auth with Supabase
+- Mobile onboarding screen: QR scan display (fetch from bridge /qr endpoint)
+- Bridge: expose GET /qr as base64 PNG
+- First-run flow: Train Ghost → QR Scan → Toggle ON → done
 
 ---
 
-## Known Risks (from ADR-001)
-- Bridge MUST run on residential IP — not Oracle VM or GCP
-- Warm-up: start at 20 msgs/day, ramp over 7 days
-- wa-auth/ directory must be backed up — losing it forces re-scan
+## Known Risks
+- Bridge MUST run on residential IP (not Oracle VM / GCP)
+- Warm-up: 20 msgs/day week 1, ramp to 50/day by week 2
+- wa-auth/ directory must be backed up separately
 
 ---
 
 ## Recovery
 ```bash
 git clone https://github.com/naliniyathelabel-prog/ghost.git
-cd ghost/apps/backend && cp .env.example .env  # fill keys
-cd ../../bridge && cp .env.example .env         # fill keys
-# restore wa-auth/ from backup
+cd ghost/apps/backend && cp .env.example .env   # fill keys
+cd ../../bridge && cp .env.example .env          # fill keys
+# restore wa-auth/ from secure backup
+# run Supabase migration 001_init.sql
 # resume from this file
 ```
