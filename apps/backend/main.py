@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from routers import webhook, ghost
+from routers import webhook, ghost, messages
 
 app = FastAPI(title="Ghost API", version="0.1.0")
 
@@ -17,6 +17,7 @@ app.add_middleware(
 
 app.include_router(webhook.router)
 app.include_router(ghost.router)
+app.include_router(messages.router)
 
 @app.get("/health")
 def health():
