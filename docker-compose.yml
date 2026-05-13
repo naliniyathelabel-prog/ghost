@@ -1,0 +1,31 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./apps/backend/.env
+    volumes:
+      - ./apps/backend:/app
+    depends_on:
+      - bridge
+    restart: unless-stopped
+
+  bridge:
+    build:
+      context: ./bridge
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    env_file:
+      - ./bridge/.env
+    volumes:
+      - ./bridge/wa-auth:/app/wa-auth  # persist WA session
+    restart: unless-stopped
+
+# Note: run bridge on your LOCAL MACHINE (not Docker on cloud)
+# to keep a residential IP. Docker here is for backend only in prod.
