@@ -1,66 +1,103 @@
 # NEXT_ACTION.md
 
 **Last updated:** 2026-05-13
-**Branch:** main (scaffold complete — feature branches from here)
+**Active branch:** `feat/backend-webhook-ai-wired`
 **Repo:** https://github.com/naliniyathelabel-prog/ghost
 
 ---
 
 ## What's Done ✅
 
-| Slice | Files | Status |
-|---|---|---|
-| Repo scaffold | .gitignore, README.md | ✅ |
-| Architecture doc | docs/ARCHITECTURE.md | ✅ |
-| ADR-001 WhatsApp Bridge | docs/adr/ADR-001 | ✅ |
-| ADR-002 AI Model | docs/adr/ADR-002 | ✅ |
-| Backend app shell | apps/backend/main.py, requirements.txt | ✅ |
-| Backend webhook route | apps/backend/routers/webhook.py | ✅ |
-| Backend ghost route | apps/backend/routers/ghost.py | ✅ |
-| AI service | apps/backend/services/ai.py | ✅ |
-| Baileys bridge | bridge/index.ts, package.json | ✅ |
-| Supabase schema | infra/migrations/001_init.sql | ✅ |
+| Slice | Files | Branch | Status |
+|---|---|---|---|
+| Repo scaffold | .gitignore, README.md | main | ✅ |
+| Architecture + ADRs | docs/ | main | ✅ |
+| Backend shell | main.py, requirements.txt | main | ✅ |
+| Baileys bridge scaffold | bridge/index.ts | main | ✅ |
+| Supabase schema + RLS | infra/migrations/001_init.sql | main | ✅ |
+| Supabase client singleton | db/supabase_client.py | feat/backend-webhook-ai-wired | ✅ |
+| Ghost service | services/ghost.py | feat/backend-webhook-ai-wired | ✅ |
+| Bridge sender service | services/bridge.py | feat/backend-webhook-ai-wired | ✅ |
+| /webhook/inbound wired | routers/webhook.py | feat/backend-webhook-ai-wired | ✅ |
+| /messages inbox + rating | routers/messages.py | feat/backend-webhook-ai-wired | ✅ |
+| /messages/stats | routers/messages.py | feat/backend-webhook-ai-wired | ✅ |
+| Docker Compose + Dockerfiles | docker-compose.yml | feat/backend-webhook-ai-wired | ✅ |
 
 ---
 
-## Next Slice: `feat/backend-webhook-ai-wired`
+## Full API Surface (Backend)
 
-Wire the full happy path end-to-end:
-1. `/webhook/inbound` → fetch ghost_profile from Supabase → call ai.py → POST /send to bridge
-2. Log inbound + outbound to message_logs
-3. Add Supabase client singleton to backend
-4. Test with a real WhatsApp message manually
+| Method | Route | Purpose |
+|---|---|---|
+| GET | /health | Health check |
+| POST | /webhook/inbound | Bridge → backend (inbound WA message) |
+| GET | /ghost/profile | Fetch ghost profile |
+| PUT | /ghost/profile | Update ghost profile (tone, samples) |
+| POST | /ghost/toggle | Toggle Ghost ON/OFF |
+| GET | /messages/ | Inbox — list all AI replies |
+| PATCH | /messages/{id}/rating | Thumbs up/down on a reply |
+| GET | /messages/stats | Dashboard stats |
+
+---
+
+## Next Slice: `feat/mobile-scaffold`
+
+Expo React Native app with:
+1. **Onboarding flow:**
+   - Screen 1: Welcome + "What is Ghost"
+   - Screen 2: Connect WhatsApp (show QR from bridge)
+   - Screen 3: Train Ghost — 5 sample reply inputs + tone/language sliders
+   - Screen 4: Go live — Ghost ON toggle
+2. **Dashboard screen:** ON/OFF toggle + today's stats card
+3. **Inbox screen:** FlatList of AI replies + thumb up/down rating
+4. **Supabase Auth:** email/OTP login
 
 **Acceptance criteria:**
-- Send a WhatsApp message to the linked number
-- Backend logs it in message_logs
-- AI generates a reply
-- Bridge sends it back
-- Message visible in message_logs table
+- User can complete onboarding in < 2 minutes
+- Ghost ON/OFF toggle calls `/ghost/toggle`
+- Inbox loads from `/messages/`
+- Rating tap calls `/messages/{id}/rating`
 
 ---
 
-## After That: `feat/mobile-scaffold`
+## To Manually Test the Happy Path Right Now
 
-- Expo React Native app init
-- Onboarding screens: QR scan + train Ghost (5 sample replies)
-- Dashboard screen with ON/OFF toggle
-- Auth with Supabase
+```bash
+# 1. Run migration in Supabase SQL editor
+#    infra/migrations/001_init.sql
+
+# 2. Create a user in Supabase Auth, copy UUID → GHOST_USER_ID in .env
+
+# 3. Insert a test ghost profile in Supabase:
+#    INSERT INTO ghost_profiles (user_id, name, tone, active)
+#    VALUES ('your-uuid', 'Test', 'casual', true);
+
+# 4. Start bridge (on your LOCAL machine, not cloud):
+cd bridge && npm install && node index.ts   # scan QR
+
+# 5. Start backend:
+cd apps/backend && pip install -r requirements.txt
+uvicorn main:app --reload
+
+# 6. Send a WhatsApp message to your linked number
+# 7. Check Supabase message_logs table — should see inbound + AI outbound
+# 8. Check GET /messages/ — should list both
+```
 
 ---
 
-## Known Risks (from ADR-001)
-- Bridge MUST run on residential IP — not Oracle VM or GCP
-- Warm-up: start at 20 msgs/day, ramp over 7 days
-- wa-auth/ directory must be backed up — losing it forces re-scan
+## Known Risks
+- Bridge MUST run on residential IP (your laptop / phone Termux / Raspberry Pi)
+- wa-auth/ folder = your WA session — back it up, losing it forces re-scan
+- GHOST_USER_ID is hardcoded for MVP single-user mode — multi-user needs auth middleware
 
 ---
 
 ## Recovery
 ```bash
 git clone https://github.com/naliniyathelabel-prog/ghost.git
-cd ghost/apps/backend && cp .env.example .env  # fill keys
-cd ../../bridge && cp .env.example .env         # fill keys
-# restore wa-auth/ from backup
+cd ghost
+git checkout feat/backend-webhook-ai-wired
+# restore .env files, wa-auth/ from backup
 # resume from this file
 ```
